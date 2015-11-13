@@ -101,7 +101,7 @@ view address model =
                     , spacer width (height - (height-120) - 50 - 5 - 30)
                     , container width 30 (midRight) (flow right
                         [ makeText 24 "Hold `Esc` to peek..."
-                        , if completion >= 1 then (makeText 24 " | End Session >>" |> clickable (Signal.message address EndSession)) else show ""
+                        , if completion >= 1 then (makeText 24 " | End Sprint >>" |> clickable (Signal.message address EndSession)) else show ""
                         , makeText 22 " "
                         ])
                     ]
@@ -120,7 +120,7 @@ view address model =
                             , round model.timeGoal % 60
                             ])
                         ]
-                    , button (Signal.message address StartSession) "Start Session"
+                    , button (Signal.message address StartSession) "Start Sprint"
                     ]
                 |> Html.fromElement
 
