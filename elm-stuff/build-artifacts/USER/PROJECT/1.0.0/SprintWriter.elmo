@@ -1,0 +1,534 @@
+Elm.SprintWriter = Elm.SprintWriter || {};
+Elm.SprintWriter.make = function (_elm) {
+   "use strict";
+   _elm.SprintWriter = _elm.SprintWriter || {};
+   if (_elm.SprintWriter.values)
+   return _elm.SprintWriter.values;
+   var _op = {},
+   _N = Elm.Native,
+   _U = _N.Utils.make(_elm),
+   _L = _N.List.make(_elm),
+   $moduleName = "SprintWriter",
+   $Basics = Elm.Basics.make(_elm),
+   $Color = Elm.Color.make(_elm),
+   $Effects = Elm.Effects.make(_elm),
+   $Graphics$Element = Elm.Graphics.Element.make(_elm),
+   $Graphics$Input = Elm.Graphics.Input.make(_elm),
+   $Graphics$Input$Field = Elm.Graphics.Input.Field.make(_elm),
+   $Html = Elm.Html.make(_elm),
+   $Html$Attributes = Elm.Html.Attributes.make(_elm),
+   $Html$Events = Elm.Html.Events.make(_elm),
+   $Keyboard = Elm.Keyboard.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $StartApp = Elm.StartApp.make(_elm),
+   $String = Elm.String.make(_elm),
+   $Task = Elm.Task.make(_elm),
+   $Text = Elm.Text.make(_elm),
+   $Time = Elm.Time.make(_elm),
+   $Window = Elm.Window.make(_elm);
+   var startAppMailbox = $Signal.mailbox({ctor: "_Tuple0"});
+   var startApp = Elm.Native.Task.make(_elm).performSignal("startApp",
+   $Signal.constant(A2($Signal.send,
+   startAppMailbox.address,
+   {ctor: "_Tuple0"})));
+   var windowDimensions = A2($Signal.merge,
+   A2($Signal.sampleOn,
+   startAppMailbox.signal,
+   $Window.dimensions),
+   $Window.dimensions);
+   var lastSession = Elm.Native.Port.make(_elm).inbound("lastSession",
+   "Maybe.Maybe SprintWriter.SavedSession",
+   function (v) {
+      return v === null ? Elm.Maybe.make(_elm).Nothing : Elm.Maybe.make(_elm).Just(typeof v === "object" && "text" in v && "wordGoal" in v && "timeGoal" in v && "timer" in v && "mode" in v ? {_: {}
+                                                                                                                                                                                               ,text: typeof v.text === "string" || typeof v.text === "object" && v.text instanceof String ? v.text : _U.badPort("a string",
+                                                                                                                                                                                               v.text)
+                                                                                                                                                                                               ,wordGoal: typeof v.wordGoal === "number" ? v.wordGoal : _U.badPort("a number",
+                                                                                                                                                                                               v.wordGoal)
+                                                                                                                                                                                               ,timeGoal: typeof v.timeGoal === "number" ? v.timeGoal : _U.badPort("a number",
+                                                                                                                                                                                               v.timeGoal)
+                                                                                                                                                                                               ,timer: typeof v.timer === "number" ? v.timer : _U.badPort("a number",
+                                                                                                                                                                                               v.timer)
+                                                                                                                                                                                               ,mode: typeof v.mode === "string" || typeof v.mode === "object" && v.mode instanceof String ? v.mode : _U.badPort("a string",
+                                                                                                                                                                                               v.mode)} : _U.badPort("an object with fields `text`, `wordGoal`, `timeGoal`, `timer`, `mode`",
+      v));
+   });
+   var charPress = Elm.Native.Port.make(_elm).inboundSignal("charPress",
+   "String",
+   function (v) {
+      return typeof v === "string" || typeof v === "object" && v instanceof String ? v : _U.badPort("a string",
+      v);
+   });
+   var NoOp = {ctor: "NoOp"};
+   var WindowResize = function (a) {
+      return {ctor: "WindowResize"
+             ,_0: a};
+   };
+   var UpdateText = function (a) {
+      return {ctor: "UpdateText"
+             ,_0: a};
+   };
+   var ContinueLastSprint = {ctor: "ContinueLastSprint"};
+   var TimerTick = function (a) {
+      return {ctor: "TimerTick"
+             ,_0: a};
+   };
+   var timer = $Signal.map(TimerTick)($Time.every($Time.second));
+   var UpdateTimeGoal = function (a) {
+      return {ctor: "UpdateTimeGoal"
+             ,_0: a};
+   };
+   var UpdateWordGoal = function (a) {
+      return {ctor: "UpdateWordGoal"
+             ,_0: a};
+   };
+   var CreateSession = {ctor: "CreateSession"};
+   var EndSession = {ctor: "EndSession"};
+   var StartSession = {ctor: "StartSession"};
+   var view = F2(function (address,
+   model) {
+      return function () {
+         var makeText = function (size) {
+            return function ($) {
+               return $Graphics$Element.centered($Text.typeface(_L.fromArray(["Courier New"
+                                                                             ,"Courier"
+                                                                             ,"monospace"]))($Text.height(size)($Text.color($Color.lightGrey)($Text.fromString($)))));
+            };
+         };
+         var words = $List.length($List.filter(F2(function (x,
+         y) {
+            return !_U.eq(x,y);
+         })(""))($String.words(model.text)));
+         var completion = _U.eq(model.wordGoal,
+         0) && _U.eq(model.timeGoal,
+         0) ? 1 : _U.eq(model.timeGoal,
+         0) ? $Basics.toFloat(words) / $Basics.toFloat(model.wordGoal) : _U.eq(model.wordGoal,
+         0) ? model.timer / model.timeGoal : A2($Basics.max,
+         $Basics.toFloat(words) / $Basics.toFloat(model.wordGoal),
+         model.timer / model.timeGoal);
+         var $ = model.windowDimensions,
+         width = $._0,
+         height = $._1;
+         var numWords = $List.length($String.words(model.text));
+         return function () {
+            var _v0 = model.mode;
+            switch (_v0.ctor)
+            {case "CreatingSession":
+               return $Html.fromElement(A3($Graphics$Element.container,
+                 width,
+                 height,
+                 $Graphics$Element.middle)(A2($Graphics$Element.flow,
+                 $Graphics$Element.down,
+                 _L.fromArray([A3($Graphics$Element.container,
+                              width,
+                              50,
+                              $Graphics$Element.middle)($Graphics$Element.centered($Text.monospace($Text.height(50)($Text.fromString("Create Sprint")))))
+                              ,A3($Graphics$Element.container,
+                              width,
+                              300,
+                              $Graphics$Element.middle)(A2($Graphics$Element.flow,
+                              $Graphics$Element.down,
+                              _L.fromArray([A4($Graphics$Input$Field.field,
+                                           $Graphics$Input$Field.defaultStyle,
+                                           function (_v1) {
+                                              return function () {
+                                                 return $Signal.message(address)(UpdateWordGoal(function ($) {
+                                                    return $Maybe.withDefault(0)($Result.toMaybe($String.toInt($)));
+                                                 }(_v1.string)));
+                                              }();
+                                           },
+                                           "Word Goal",
+                                           _U.replace([["string"
+                                                       ,_U.cmp(model.wordGoal,
+                                                       0) > 0 ? $Basics.toString(model.wordGoal) : ""]
+                                                      ,["selection"
+                                                       ,A3($Graphics$Input$Field.Selection,
+                                                       100,
+                                                       100,
+                                                       $Graphics$Input$Field.Forward)]],
+                                           $Graphics$Input$Field.noContent))
+                                           ,A4($Graphics$Input$Field.field,
+                                           $Graphics$Input$Field.defaultStyle,
+                                           function (_v3) {
+                                              return function () {
+                                                 return $Signal.message(address)(UpdateTimeGoal(function ($) {
+                                                    return $Basics.toFloat($Maybe.withDefault(0)($Result.toMaybe($String.toInt($))));
+                                                 }(_v3.string)));
+                                              }();
+                                           },
+                                           "Timer (in seconds)",
+                                           _U.replace([["string"
+                                                       ,_U.cmp(model.timeGoal,
+                                                       0) > 0 ? $Basics.toString(model.timeGoal) : ""]
+                                                      ,["selection"
+                                                       ,A3($Graphics$Input$Field.Selection,
+                                                       100,
+                                                       100,
+                                                       $Graphics$Input$Field.Forward)]],
+                                           $Graphics$Input$Field.noContent))
+                                           ,$Graphics$Element.width(200)($Graphics$Element.centered($Text.height(18)($Text.monospace($Text.fromString($String.join(":")(A2($List.map,
+                                           function ($) {
+                                              return function (str) {
+                                                 return _U.cmp($String.length(str),
+                                                 2) < 0 ? A2($Basics._op["++"],
+                                                 "0",
+                                                 str) : str;
+                                              }($Basics.toString($));
+                                           },
+                                           _L.fromArray([$Basics.floor($Time.inHours(model.timeGoal) * $Time.second)
+                                                        ,A2($Basics._op["%"],
+                                                        $Basics.floor($Time.inMinutes(model.timeGoal) * $Time.second),
+                                                        60)
+                                                        ,A2($Basics._op["%"],
+                                                        $Basics.round(model.timeGoal),
+                                                        60)]))))))))
+                                           ,A2($Graphics$Element.spacer,
+                                           10,
+                                           10)
+                                           ,$Graphics$Element.width(200)(A2($Graphics$Input.button,
+                                           A2($Signal.message,
+                                           address,
+                                           StartSession),
+                                           "Start New Sprint"))
+                                           ,!_U.eq(lastSession,
+                                           $Maybe.Nothing) ? A3($Graphics$Element.container,
+                                           200,
+                                           35,
+                                           $Graphics$Element.midTop)($Graphics$Element.centered($Text.monospace($Text.color($Color.red)($Text.fromString("(Overwrites last sprint)"))))) : A2($Graphics$Element.spacer,
+                                           0,
+                                           0)
+                                           ,!_U.eq(lastSession,
+                                           $Maybe.Nothing) ? $Graphics$Element.width(200)(A2($Graphics$Input.button,
+                                           A2($Signal.message,
+                                           address,
+                                           ContinueLastSprint),
+                                           "Continue Last Sprint")) : A2($Graphics$Element.spacer,
+                                           0,
+                                           0)])))]))));
+               case "DoneWithSession":
+               return A2($Html.textarea,
+                 _L.fromArray([$Html$Attributes.style(_L.fromArray([{ctor: "_Tuple2"
+                                                                    ,_0: "width"
+                                                                    ,_1: A2($Basics._op["++"],
+                                                                    $Basics.toString(width - 10),
+                                                                    "px")}
+                                                                   ,{ctor: "_Tuple2"
+                                                                    ,_0: "height"
+                                                                    ,_1: A2($Basics._op["++"],
+                                                                    $Basics.toString(height - 10),
+                                                                    "px")}]))
+                              ,A3($Html$Events.on,
+                              "input",
+                              $Html$Events.targetValue,
+                              function (val) {
+                                 return A2($Signal.message,
+                                 address,
+                                 UpdateText(val));
+                              })]),
+                 _L.fromArray([$Html.text(model.text)]));
+               case "Peeking":
+               return $Html.fromElement(A2($Graphics$Element.flow,
+                 $Graphics$Element.down,
+                 _L.fromArray([$Graphics$Element.color($Color.green)(A4($Graphics$Element.container,
+                              $Basics.round($Basics.toFloat(width) * completion),
+                              5,
+                              $Graphics$Element.topLeft,
+                              $Graphics$Element.empty))
+                              ,A2($Html.toElement,
+                              width,
+                              height - 5)(A2($Html.textarea,
+                              _L.fromArray([$Html$Attributes.style(_L.fromArray([{ctor: "_Tuple2"
+                                                                                 ,_0: "width"
+                                                                                 ,_1: A2($Basics._op["++"],
+                                                                                 $Basics.toString(width - 10),
+                                                                                 "px")}
+                                                                                ,{ctor: "_Tuple2"
+                                                                                 ,_0: "height"
+                                                                                 ,_1: A2($Basics._op["++"],
+                                                                                 $Basics.toString(height - 15),
+                                                                                 "px")}
+                                                                                ,{ctor: "_Tuple2"
+                                                                                 ,_0: "cursor"
+                                                                                 ,_1: "not-allowed"}]))
+                                           ,$Html$Attributes.disabled(true)
+                                           ,$Html$Attributes.$class("peek")]),
+                              _L.fromArray([$Html.text(model.text)])))])));
+               case "Writing":
+               return $Html.fromElement($Graphics$Element.color($Color.black)(A3($Graphics$Element.container,
+                 width,
+                 height,
+                 $Graphics$Element.topLeft)(A2($Graphics$Element.flow,
+                 $Graphics$Element.down,
+                 _L.fromArray([$Graphics$Element.color($Color.green)(A4($Graphics$Element.container,
+                              $Basics.round($Basics.toFloat(width) * completion),
+                              5,
+                              $Graphics$Element.topLeft,
+                              $Graphics$Element.empty))
+                              ,A4($Graphics$Element.container,
+                              width,
+                              50,
+                              $Graphics$Element.middle,
+                              makeText(30)($Basics.toString(words)))
+                              ,A4($Graphics$Element.container,
+                              width,
+                              height - 120,
+                              $Graphics$Element.middle,
+                              makeText(150)(A2($String.right,
+                              1,
+                              model.text)))
+                              ,A2($Graphics$Element.spacer,
+                              width,
+                              height - (height - 120) - 50 - 5 - 30)
+                              ,A4($Graphics$Element.container,
+                              width,
+                              30,
+                              $Graphics$Element.midRight,
+                              A2($Graphics$Element.flow,
+                              $Graphics$Element.right,
+                              _L.fromArray([A2(makeText,
+                                           24,
+                                           "Hold `Esc` to peek...")
+                                           ,_U.cmp(completion,
+                                           1) > -1 ? $Graphics$Input.clickable(A2($Signal.message,
+                                           address,
+                                           EndSession))(A2(makeText,
+                                           24,
+                                           " | End Sprint >>")) : $Graphics$Element.show("")
+                                           ,A2(makeText,22," ")])))])))));}
+            _U.badCase($moduleName,
+            "between lines 125 and 169");
+         }();
+      }();
+   });
+   var Peek = {ctor: "Peek"};
+   var esc = A2($Signal.sampleOn,
+   $Keyboard.isDown(27),
+   $Signal.constant(Peek));
+   var EnterChar = function (a) {
+      return {ctor: "EnterChar"
+             ,_0: a};
+   };
+   var DoneWithSession = {ctor: "DoneWithSession"};
+   var CreatingSession = {ctor: "CreatingSession"};
+   var Peeking = {ctor: "Peeking"};
+   var Writing = {ctor: "Writing"};
+   var SavedSession = F5(function (a,
+   b,
+   c,
+   d,
+   e) {
+      return {_: {}
+             ,mode: e
+             ,text: a
+             ,timeGoal: c
+             ,timer: d
+             ,wordGoal: b};
+   });
+   var initialModel = {_: {}
+                      ,lastTime: 0
+                      ,mode: CreatingSession
+                      ,text: ""
+                      ,timeGoal: 0
+                      ,timer: 0
+                      ,windowDimensions: {ctor: "_Tuple2"
+                                         ,_0: 0
+                                         ,_1: 0}
+                      ,wordGoal: 0};
+   var update = F2(function (action,
+   model) {
+      return A2($Basics.flip,
+      F2(function (v0,v1) {
+         return {ctor: "_Tuple2"
+                ,_0: v0
+                ,_1: v1};
+      }),
+      $Effects.none)(function () {
+         switch (action.ctor)
+         {case "ContinueLastSprint":
+            return $Maybe.withDefault(initialModel)(A2($Maybe.andThen,
+              lastSession,
+              function (last) {
+                 return $Maybe.Just(_U.replace([["text"
+                                                ,last.text]
+                                               ,["wordGoal",last.wordGoal]
+                                               ,["timeGoal",last.timeGoal]
+                                               ,["timer",last.timer]
+                                               ,["mode"
+                                                ,function () {
+                                                   var _v12 = last.mode;
+                                                   switch (_v12)
+                                                   {case "CreatingSession":
+                                                      return CreatingSession;
+                                                      case "DoneWithSession":
+                                                      return DoneWithSession;
+                                                      case "Peeking":
+                                                      return Writing;
+                                                      case "Writing":
+                                                      return Writing;}
+                                                   _U.badCase($moduleName,
+                                                   "between lines 97 and 102");
+                                                }()]],
+                 model));
+              }));
+            case "CreateSession":
+            return _U.replace([["mode"
+                               ,CreatingSession]],
+              model);
+            case "EndSession":
+            return _U.replace([["mode"
+                               ,DoneWithSession]],
+              model);
+            case "EnterChar":
+            return !_U.eq(model.mode,
+              Writing) ? model : _U.replace([["text"
+                                             ,A2($Basics._op["++"],
+                                             model.text,
+                                             action._0)]],
+              model);
+            case "Peek":
+            return !_U.eq(model.mode,
+              Writing) && !_U.eq(model.mode,
+              Peeking) ? model : _U.replace([["mode"
+                                             ,_U.eq(model.mode,
+                                             Writing) ? Peeking : Writing]],
+              model);
+            case "StartSession":
+            return _U.replace([["mode"
+                               ,Writing]
+                              ,["timeGoal"
+                               ,model.timeGoal * 1000]],
+              model);
+            case "TimerTick":
+            return !_U.eq(model.mode,
+              Writing) && !_U.eq(model.mode,
+              Peeking) ? model : _U.replace([["timer"
+                                             ,_U.eq(model.lastTime,
+                                             0) ? model.timer + 1000 : model.timer + (action._0 - model.lastTime)]
+                                            ,["lastTime",action._0]],
+              model);
+            case "UpdateText":
+            return _U.replace([["text"
+                               ,action._0]],
+              model);
+            case "UpdateTimeGoal":
+            return _U.replace([["timeGoal"
+                               ,action._0]],
+              model);
+            case "UpdateWordGoal":
+            return _U.replace([["wordGoal"
+                               ,action._0]],
+              model);
+            case "WindowResize":
+            return _U.replace([["windowDimensions"
+                               ,action._0]],
+              model);}
+         return model;
+      }());
+   });
+   var app = $StartApp.start({_: {}
+                             ,init: {ctor: "_Tuple2"
+                                    ,_0: initialModel
+                                    ,_1: $Effects.none}
+                             ,inputs: _L.fromArray([A2($Signal.map,
+                                                   EnterChar,
+                                                   charPress)
+                                                   ,esc
+                                                   ,A2($Signal.map,
+                                                   WindowResize,
+                                                   windowDimensions)
+                                                   ,timer])
+                             ,update: update
+                             ,view: view});
+   var main = app.html;
+   var writingMode = Elm.Native.Port.make(_elm).outboundSignal("writingMode",
+   function (v) {
+      return v;
+   },
+   $Signal.dropRepeats(A2($Signal.map,
+   function ($) {
+      return A2($Basics.flip,
+      $List.member,
+      _L.fromArray([Writing
+                   ,Peeking]))(function (_) {
+         return _.mode;
+      }($));
+   },
+   app.model)));
+   var session = Elm.Native.Port.make(_elm).outboundSignal("session",
+   function (v) {
+      return {text: v.text
+             ,wordGoal: v.wordGoal
+             ,timeGoal: v.timeGoal
+             ,timer: v.timer
+             ,mode: v.mode};
+   },
+   A2($Signal.filter,
+   function ($) {
+      return F2(function (x,y) {
+         return !_U.eq(x,y);
+      })($Basics.toString(CreatingSession))(function (_) {
+         return _.mode;
+      }($));
+   },
+   {_: {}
+   ,mode: ""
+   ,text: ""
+   ,timeGoal: 0
+   ,timer: 0
+   ,wordGoal: 0})($Signal.dropRepeats($Signal.map(function (model) {
+      return {_: {}
+             ,mode: _U.eq(model.mode,
+             Peeking) ? $Basics.toString(Writing) : $Basics.toString(model.mode)
+             ,text: model.text
+             ,timeGoal: model.timeGoal
+             ,timer: model.timer
+             ,wordGoal: model.wordGoal};
+   })(app.model))));
+   var Model = F7(function (a,
+   b,
+   c,
+   d,
+   e,
+   f,
+   g) {
+      return {_: {}
+             ,lastTime: e
+             ,mode: f
+             ,text: a
+             ,timeGoal: c
+             ,timer: d
+             ,windowDimensions: g
+             ,wordGoal: b};
+   });
+   _elm.SprintWriter.values = {_op: _op
+                              ,Model: Model
+                              ,initialModel: initialModel
+                              ,SavedSession: SavedSession
+                              ,Writing: Writing
+                              ,Peeking: Peeking
+                              ,CreatingSession: CreatingSession
+                              ,DoneWithSession: DoneWithSession
+                              ,EnterChar: EnterChar
+                              ,Peek: Peek
+                              ,StartSession: StartSession
+                              ,EndSession: EndSession
+                              ,CreateSession: CreateSession
+                              ,UpdateWordGoal: UpdateWordGoal
+                              ,UpdateTimeGoal: UpdateTimeGoal
+                              ,TimerTick: TimerTick
+                              ,ContinueLastSprint: ContinueLastSprint
+                              ,UpdateText: UpdateText
+                              ,WindowResize: WindowResize
+                              ,NoOp: NoOp
+                              ,update: update
+                              ,view: view
+                              ,main: main
+                              ,app: app
+                              ,esc: esc
+                              ,timer: timer
+                              ,windowDimensions: windowDimensions
+                              ,startAppMailbox: startAppMailbox};
+   return _elm.SprintWriter.values;
+};
