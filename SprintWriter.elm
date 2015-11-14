@@ -8,6 +8,7 @@ import Time exposing (Time)
 import String
 import Html exposing (Html)
 import Html.Attributes exposing (style, disabled, class)
+import Html.Events exposing (on, targetValue)
 import StartApp
 import Text
 import Keyboard
@@ -29,6 +30,14 @@ type alias Model =
 
 initialModel = { text = "", wordGoal = 0, timeGoal = 0, timer = 0, mode = CreatingSession, windowDimensions = (0,0), lastTime = 0 }
 
+type alias SavedSession =
+    { text : String
+    , wordGoal : Int
+    , timeGoal : Time
+    , timer : Time
+    , mode : String
+    }
+
 type ViewMode = Writing | Peeking | CreatingSession | DoneWithSession
 
 ---- UPDATE ----
@@ -42,6 +51,8 @@ type Action
     | UpdateWordGoal Int
     | UpdateTimeGoal Time
     | TimerTick Time
+    | ContinueLastSprint
+    | UpdateText String
     | WindowResize (Int, Int)
     | NoOp
 
@@ -51,6 +62,9 @@ update action model =
         EnterChar ch ->
             if model.mode /= Writing then model
             else { model | text <- model.text ++ ch }
+
+        UpdateText newText ->
+            { model | text <- newText }
 
         Peek ->
             if model.mode /= Writing && model.mode /= Peeking then model
@@ -67,10 +81,26 @@ update action model =
         UpdateTimeGoal newGoal -> { model | timeGoal <- newGoal }
 
         TimerTick newTime ->
-            if model.mode /= Writing then model
-            else { model | timer <- if model.lastTime == 0 then 1000 else model.timer + (newTime - model.lastTime)
+            if model.mode /= Writing && model.mode /= Peeking then model
+            else { model | timer <- if model.lastTime == 0 then model.timer + 1000 else model.timer + (newTime - model.lastTime)
                          , lastTime <- newTime
                  }
+
+        ContinueLastSprint ->
+            lastSession
+             `Maybe.andThen` (\last ->
+                Just { model |
+                    text <- last.text,
+                    wordGoal <- last.wordGoal,
+                    timeGoal <- last.timeGoal,
+                    timer <- last.timer,
+                    mode <- case last.mode of
+                        "CreatingSession" -> CreatingSession
+                        "Writing" -> Writing
+                        "Peeking" -> Writing
+                        "DoneWithSession" -> DoneWithSession
+                })
+             |> Maybe.withDefault initialModel
 
         WindowResize newDimensions -> { model | windowDimensions <- newDimensions }
 
@@ -111,24 +141,32 @@ view address model =
 
             CreatingSession ->
                 flow down
-                    [ field defaultStyle (\{string} -> Signal.message address <| UpdateWordGoal <| (String.toInt >> Result.toMaybe >> Maybe.withDefault 0) string) "Word Goal" { noContent | string <- if model.wordGoal > 0 then toString model.wordGoal else "", selection <- Selection 100 100 Forward }
-                    , flow right
-                        [ field defaultStyle (\{string} -> Signal.message address <| UpdateTimeGoal <| (String.toInt >> Result.toMaybe >> Maybe.withDefault 0 >> toFloat) string) "Timer (in seconds)" { noContent | string <- if model.timeGoal > 0 then toString model.timeGoal else "", selection <- Selection 100 100 Forward }
-                        , rightAligned (Text.height 18 <| Text.monospace <| Text.fromString <| String.join ":" <| List.map (toString >> \str -> if String.length str < 2 then "0" ++ str else str)
+                    [ Text.fromString "Create Sprint" |> Text.height 50 |> Text.monospace |> centered |> container width 50 middle
+                    , flow down
+                        [ field defaultStyle (\{string} -> Signal.message address <| UpdateWordGoal <| (String.toInt >> Result.toMaybe >> Maybe.withDefault 0) string) "Word Goal" { noContent | string <- if model.wordGoal > 0 then toString model.wordGoal else "", selection <- Selection 100 100 Forward }
+                        , field defaultStyle (\{string} -> Signal.message address <| UpdateTimeGoal <| (String.toInt >> Result.toMaybe >> Maybe.withDefault 0 >> toFloat) string) "Timer (in seconds)" { noContent | string <- if model.timeGoal > 0 then toString model.timeGoal else "", selection <- Selection 100 100 Forward }
+                        , centered (Text.height 18 <| Text.monospace <| Text.fromString <| String.join ":" <| List.map (toString >> \str -> if String.length str < 2 then "0" ++ str else str)
                             [ floor <| Time.inHours model.timeGoal * Time.second
                             , floor (Time.inMinutes model.timeGoal * Time.second) % 60
                             , round model.timeGoal % 60
-                            ])
-                        ]
-                    , button (Signal.message address StartSession) "Start Sprint"
+                            ]) |> Graphics.Element.width 200
+                        , spacer 10 10
+                        , (button (Signal.message address StartSession) "Start New Sprint") |> Graphics.Element.width 200
+                        , if lastSession /= Nothing then (Text.fromString "(Overwrites last sprint)" |> Text.color red |> Text.monospace |> centered |> container 200 35 midTop) else spacer 0 0
+                        , if lastSession /= Nothing then (button (Signal.message address ContinueLastSprint) "Continue Last Sprint" |> Graphics.Element.width 200 ) else spacer 0 0
+                        ] |> container width 300 middle
                     ]
+                |> container width height middle
                 |> Html.fromElement
 
             Peeking ->
-                Html.textarea [style [("width", toString width ++ "px"), ("height", toString height ++ "px"), ("cursor", "not-allowed")], disabled True, class "peek"] [ Html.text model.text ]
+                flow down
+                [ container (round <| toFloat width * completion) 5 topLeft empty |> color green
+                , Html.textarea [style [("width", toString (width-10) ++ "px"), ("height", toString (height - 15) ++ "px"), ("cursor", "not-allowed")], disabled True, class "peek"] [ Html.text model.text ] |> Html.toElement width (height-5)
+                ] |> Html.fromElement
 
             DoneWithSession ->
-                Html.textarea [style [("width", toString width ++ "px"), ("height", toString height ++ "px")]] [ Html.text model.text ]
+                Html.textarea [style [("width", toString (width-10) ++ "px"), ("height", toString (height-10) ++ "px")], on "input" targetValue (\val -> Signal.message address (UpdateText val)) ] [ Html.text model.text ]
 
 ---- WIRING ----
 
@@ -136,7 +174,12 @@ main =
      app.html
 
 app =
-    StartApp.start { init = (initialModel, Effects.none), view = view, update = update, inputs = [Signal.map EnterChar charPress, esc, Signal.map WindowResize windowDimensions, timer] }
+    StartApp.start
+        { init = (initialModel, Effects.none)
+        , view = view
+        , update = update
+        , inputs = [Signal.map EnterChar charPress, esc, Signal.map WindowResize windowDimensions, timer]
+        }
 
 esc : Signal Action
 esc = Signal.sampleOn (Keyboard.isDown 27) (Signal.constant Peek)
@@ -147,7 +190,24 @@ timer = Signal.map TimerTick <| Time.every Time.second
 port charPress : Signal String
 
 port writingMode : Signal Bool
-port writingMode = Signal.map (.mode >> flip List.member [Writing, Peeking]) app.model
+port writingMode = Signal.map (.mode >> flip List.member [Writing, Peeking]) app.model |> Signal.dropRepeats
+
+port session : Signal SavedSession
+port session =
+    app.model
+    |> Signal.map
+        (\model ->
+            { text = model.text
+            , wordGoal = model.wordGoal
+            , timeGoal = model.timeGoal
+            , timer = model.timer
+            , mode = if model.mode == Peeking then toString Writing else toString model.mode
+            }
+        )
+    |> Signal.dropRepeats
+    |> Signal.filter (.mode >> (/=) (toString CreatingSession)) {text="",wordGoal=0,timeGoal=0,timer=0,mode=""}
+
+port lastSession : Maybe SavedSession
 
 -- Force initial window dimensions
 windowDimensions =

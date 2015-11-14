@@ -20,10 +20,17 @@
 <script src="elm.js"></script>
 <script>
 
-var SprintWriter = Elm.fullscreen(Elm.SprintWriter, { charPress : "" });
+var prevSession = JSON.parse(localStorage.getItem("SprintWriter-PrevSession"));
+
+var SprintWriter = Elm.fullscreen(Elm.SprintWriter, { charPress : "", lastSession : prevSession });
 var inWritingMode = false;
 
-SprintWriter.ports.writingMode.subscribe(function(val) { inWritingMode = val; console.log(val); });
+SprintWriter.ports.writingMode.subscribe(function(val) { inWritingMode = val; });
+
+SprintWriter.ports.session.subscribe(function(session) {
+
+    localStorage.setItem("SprintWriter-PrevSession", JSON.stringify(session)); console.log(session);
+});
 
 document.addEventListener("keypress", function(e) {
     if(inWritingMode) SprintWriter.ports.charPress.send(String.fromCharCode(e.charCode));
@@ -34,10 +41,6 @@ document.addEventListener("keydown", function(e) {
     if(e.keyCode === 9) SprintWriter.ports.charPress.send("    ");
     if(e.keyCode === 13) SprintWriter.ports.charPress.send("\n");
 });
-
-window.onbeforeunload = function(){
-    return 'WARNING: Unsaved progress will be lost. Make sure to copy any text you want to keep into another application before leaving or reloading the page!';
-};
 
 </script>
 </html>
